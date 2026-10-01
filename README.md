@@ -72,7 +72,7 @@ rules:
   - `ast-grep` is optional and narrows `paths` down to files where a matching snippet was added, removed or edited. its an ast-grep rule passed through as-is, so `pattern`, `kind`, `has`, `inside`, `regex`, `constraints` and `utils` all work. https://ast-grep.github.io/playground.html is the fastest way to write one
 - `rules[].notify[]` takes a `person`, `via` (`github`, `slack`) and an optional `comment`, posted verbatim next to the mention
 
-the config is read from the PR's base commit, so a PR cant change the rules its checked against. a config change takes effect once its merged. until then, including on the PR that adds it, the run is skipped with a notice
+the config is read from the PR's base commit, so a PR cant change the rules its checked against. a config change takes effect once its merged. on the PR that adds it the run is skipped with a notice. a config found neither on the base nor in the PR fails the run, since thats usually a wrong `config-path`
 
 ## how matching works
 

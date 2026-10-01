@@ -42901,6 +42901,14 @@ function filterByPaths(files, globs) {
 }
 
 // src/run.ts
+async function loadRulesText(read, path5, base, head) {
+  const text = await read(base);
+  if (text !== void 0) return { text };
+  if (await read(head) !== void 0) {
+    return { skip: `${path5} is in this PR but not on the base branch yet, so there are no rules to check. Skipping.` };
+  }
+  throw new Error(`${path5} not found on the base branch or in this PR. Check the config-path input.`);
+}
 async function evaluate(config, files, io) {
   const fired = [];
   for (const rule of config.rules) {
@@ -42944,12 +42952,17 @@ async function run() {
   const octokit = getOctokit(getInput("github-token", { required: true }));
   const repo = context2.repo;
   const configPath = getInput("config-path") || ".github/notify-for-visibility.yml";
-  const configText = await getContent(octokit, repo, configPath, payload.base.sha);
-  if (configText === void 0) {
-    notice(`${configPath} is not on the base branch yet, so there are no rules to check. Skipping.`);
+  const rules = await loadRulesText(
+    (ref) => getContent(octokit, repo, configPath, ref),
+    configPath,
+    payload.base.sha,
+    payload.head.sha
+  );
+  if ("skip" in rules) {
+    notice(rules.skip);
     return;
   }
-  const config = parseConfig(configText, configPath);
+  const config = parseConfig(rules.text, configPath);
   if (payload.draft && config["ignore-drafts"]) {
     info("Draft PR, skipping. It is checked again once marked ready for review.");
     return;

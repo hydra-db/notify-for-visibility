@@ -16,6 +16,24 @@ export interface Io {
   workdir(): Promise<string>
 }
 
+// The rules come from the base commit so a PR cannot change the rules it is
+// checked against. A head that has them while the base does not is the PR
+// adding them, which has nothing to check yet. Neither having them is a
+// misconfiguration, so it fails rather than skipping quietly.
+export async function loadRulesText(
+  read: (ref: string) => Promise<string | undefined>,
+  path: string,
+  base: string,
+  head: string,
+): Promise<{ text: string } | { skip: string }> {
+  const text = await read(base)
+  if (text !== undefined) return { text }
+  if ((await read(head)) !== undefined) {
+    return { skip: `${path} is in this PR but not on the base branch yet, so there are no rules to check. Skipping.` }
+  }
+  throw new Error(`${path} not found on the base branch or in this PR. Check the config-path input.`)
+}
+
 export async function evaluate(config: Config, files: ChangedFile[], io: Io): Promise<Fired[]> {
   const fired: Fired[] = []
   for (const rule of config.rules) {

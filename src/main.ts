@@ -9,7 +9,7 @@ import type { FileContents } from './match/astgrep.ts'
 import { installAstGrep, PINNED_VERSION } from './match/astgrep-install.ts'
 import { postSlack } from './notify/slack.ts'
 import { type PullRequest, renderComment, renderSlack } from './render.ts'
-import { evaluate, type Io, plan } from './run.ts'
+import { evaluate, type Io, loadRulesText, plan } from './run.ts'
 import type { Sent } from './state.ts'
 
 interface PullRequestPayload {
@@ -33,15 +33,17 @@ async function run(): Promise<void> {
   const repo = context.repo
   const configPath = core.getInput('config-path') || '.github/notify-for-visibility.yml'
 
-  // Read from the base commit so a PR cannot change the rules it is checked against.
-  const configText = await getContent(octokit, repo, configPath, payload.base.sha)
-  // Not a failure: the PR that adds the rules, and any PR whose base predates
-  // them, has nothing to check against.
-  if (configText === undefined) {
-    core.notice(`${configPath} is not on the base branch yet, so there are no rules to check. Skipping.`)
+  const rules = await loadRulesText(
+    ref => getContent(octokit, repo, configPath, ref),
+    configPath,
+    payload.base.sha,
+    payload.head.sha,
+  )
+  if ('skip' in rules) {
+    core.notice(rules.skip)
     return
   }
-  const config = parseConfig(configText, configPath)
+  const config = parseConfig(rules.text, configPath)
 
   if (payload.draft && config['ignore-drafts']) {
     core.info('Draft PR, skipping. It is checked again once marked ready for review.')
