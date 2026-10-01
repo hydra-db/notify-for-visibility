@@ -1,5 +1,5 @@
 name: notify-for-visibility
-description: Tags the people who care about a part of the code when a PR changes it, on GitHub or Slack.
+description: Tags people who care about a part of the code when a PR changes it, on GitHub or Slack.
 author: hydra-db
 branding:
   icon: bell
