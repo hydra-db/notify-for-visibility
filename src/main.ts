@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import * as core from '@actions/core'
 import { context, getOctokit } from '@actions/github'
-import { ConfigError, parseConfig } from './config.ts'
+import { parseConfig } from './config.ts'
 import { createComment, getContent, listFiles, MAX_PR_FILES, readPreviouslySent } from './github.ts'
 import type { FileContents } from './match/astgrep.ts'
 import { installAstGrep, PINNED_VERSION } from './match/astgrep-install.ts'
@@ -17,6 +17,7 @@ interface PullRequestPayload {
   title: string
   html_url: string
   draft?: boolean
+  user: { login: string }
   base: { sha: string }
   head: { sha: string }
 }
@@ -34,8 +35,11 @@ async function run(): Promise<void> {
 
   // Read from the base commit so a PR cannot change the rules it is checked against.
   const configText = await getContent(octokit, repo, configPath, payload.base.sha)
+  // Not a failure: the PR that adds the rules, and any PR whose base predates
+  // them, has nothing to check against.
   if (configText === undefined) {
-    throw new ConfigError(`${configPath} not found on the base branch at ${payload.base.sha}`)
+    core.notice(`${configPath} is not on the base branch yet, so there are no rules to check. Skipping.`)
+    return
   }
   const config = parseConfig(configText, configPath)
 
@@ -80,9 +84,10 @@ async function run(): Promise<void> {
   }
   core.info(`Matched: ${fired.map(f => f.rule.name).join(', ')}`)
 
-  const deliveries = plan(fired, await readPreviouslySent(octokit, repo, payload.number))
+  const previouslySent = await readPreviouslySent(octokit, repo, payload.number)
+  const deliveries = plan(fired, previouslySent, config.people, payload.user.login)
   if (deliveries.length === 0) {
-    core.info('Everyone was already notified on this PR.')
+    core.info('Nothing new to send. Everyone was already notified, or is the PR author.')
     return
   }
 

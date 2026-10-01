@@ -72,7 +72,7 @@ rules:
   - `ast-grep` is optional and narrows `paths` down to files where a matching snippet was added, removed or edited. its an ast-grep rule passed through as-is, so `pattern`, `kind`, `has`, `inside`, `regex`, `constraints` and `utils` all work. https://ast-grep.github.io/playground.html is the fastest way to write one
 - `rules[].notify[]` takes a `person`, `via` (`github`, `slack`) and an optional `comment`, posted verbatim next to the mention
 
-the config is read from the PR's base commit, so a PR cant change the rules its checked against. a config change takes effect once its merged
+the config is read from the PR's base commit, so a PR cant change the rules its checked against. a config change takes effect once its merged. until then, including on the PR that adds it, the run is skipped with a notice
 
 ## how matching works
 
@@ -82,7 +82,7 @@ ast-grep is downloaded from its github release only when some rule uses it. the 
 
 ## notifications
 
-each person is notified once per rule per PR, per channel. a later push that matches the same rule does not ping them again, but a rule that starts matching on a later push does
+each person is notified once per rule per PR, per channel, and never on their own PR. a later push that matches the same rule does not ping them again, but a rule that starts matching on a later push does
 
 every run with something new to send posts a new comment rather than editing an old one, because github does not notify people who are @-mentioned in an edit. the comment also carries a hidden record of what was sent, which is how later runs know. only comments from a bot account count, so a PR author cant post a fake record to skip a notification. a slack-only notification still posts a short comment for that reason
 

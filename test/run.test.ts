@@ -30,8 +30,15 @@ test('fires only rules whose paths changed, without touching ast-grep', async ()
 
 test('plan skips what was already sent', async () => {
   const fired = await evaluate(config, [{ filename: 'goash/x.go', status: 'modified' }], io)
-  const [d] = plan(fired, [['r1', 'a', 'github'], ['r1', 'b', 'slack']])
+  const [d] = plan(fired, [['r1', 'a', 'github'], ['r1', 'b', 'slack']], config.people, 'someone')
   assert.deepEqual(d.github.map(n => n.person), ['b'])
   assert.deepEqual(d.slack, [])
-  assert.deepEqual(plan(fired, [['r1', 'a', 'github'], ['r1', 'b', 'github'], ['r1', 'b', 'slack']]), [])
+  assert.deepEqual(plan(fired, [['r1', 'a', 'github'], ['r1', 'b', 'github'], ['r1', 'b', 'slack']], config.people, 'someone'), [])
+})
+
+test('plan never notifies the PR author', async () => {
+  const fired = await evaluate(config, [{ filename: 'goash/x.go', status: 'modified' }], io)
+  const [d] = plan(fired, [], config.people, 'B')
+  assert.deepEqual(d.github.map(n => n.person), ['a'])
+  assert.deepEqual(d.slack, [])
 })

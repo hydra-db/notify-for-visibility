@@ -37976,6 +37976,9 @@ function error(message, properties = {}) {
 function warning(message, properties = {}) {
   issueCommand("warning", toCommandProperties(properties), message instanceof Error ? message.toString() : message);
 }
+function notice(message, properties = {}) {
+  issueCommand("notice", toCommandProperties(properties), message instanceof Error ? message.toString() : message);
+}
 function info(message) {
   process.stdout.write(message + os5.EOL);
 }
@@ -42917,11 +42920,14 @@ async function evaluate(config, files, io) {
   }
   return fired;
 }
-function plan(fired, previouslySent) {
+function plan(fired, previouslySent, people, author) {
   const done = new Set(previouslySent.map(key));
+  const isAuthor = (person) => people[person].github.toLowerCase() === author.toLowerCase();
   const deliveries = [];
   for (const { rule, files } of fired) {
-    const pending = (channel) => rule.notify.filter((n) => n.via.includes(channel) && !done.has(key([rule.name, n.person, channel])));
+    const pending = (channel) => rule.notify.filter(
+      (n) => n.via.includes(channel) && !isAuthor(n.person) && !done.has(key([rule.name, n.person, channel]))
+    );
     const d = { rule, files, github: pending("github"), slack: pending("slack") };
     if (d.github.length > 0 || d.slack.length > 0) deliveries.push(d);
   }
@@ -42940,7 +42946,8 @@ async function run() {
   const configPath = getInput("config-path") || ".github/notify-for-visibility.yml";
   const configText = await getContent(octokit, repo, configPath, payload.base.sha);
   if (configText === void 0) {
-    throw new ConfigError(`${configPath} not found on the base branch at ${payload.base.sha}`);
+    notice(`${configPath} is not on the base branch yet, so there are no rules to check. Skipping.`);
+    return;
   }
   const config = parseConfig(configText, configPath);
   if (payload.draft && config["ignore-drafts"]) {
@@ -42978,9 +42985,10 @@ async function run() {
     return;
   }
   info(`Matched: ${fired.map((f) => f.rule.name).join(", ")}`);
-  const deliveries = plan(fired, await readPreviouslySent(octokit, repo, payload.number));
+  const previouslySent = await readPreviouslySent(octokit, repo, payload.number);
+  const deliveries = plan(fired, previouslySent, config.people, payload.user.login);
   if (deliveries.length === 0) {
-    info("Everyone was already notified on this PR.");
+    info("Nothing new to send. Everyone was already notified, or is the PR author.");
     return;
   }
   const pr = { ...repo, number: payload.number, title: payload.title, url: payload.html_url };

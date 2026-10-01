@@ -36,13 +36,17 @@ export async function evaluate(config: Config, files: ChangedFile[], io: Io): Pr
   return fired
 }
 
-// Drops (rule, person, channel) triples already sent on this PR.
-export function plan(fired: Fired[], previouslySent: Sent[]): Delivery[] {
+// Drops (rule, person, channel) triples already sent on this PR, and the PR's
+// author, who already knows what they changed.
+export function plan(fired: Fired[], previouslySent: Sent[], people: Config['people'], author: string): Delivery[] {
   const done = new Set(previouslySent.map(key))
+  const isAuthor = (person: string) => people[person].github.toLowerCase() === author.toLowerCase()
   const deliveries: Delivery[] = []
   for (const { rule, files } of fired) {
     const pending = (channel: 'github' | 'slack') =>
-      rule.notify.filter(n => n.via.includes(channel) && !done.has(key([rule.name, n.person, channel])))
+      rule.notify.filter(
+        n => n.via.includes(channel) && !isAuthor(n.person) && !done.has(key([rule.name, n.person, channel])),
+      )
     const d = { rule, files, github: pending('github'), slack: pending('slack') }
     if (d.github.length > 0 || d.slack.length > 0) deliveries.push(d)
   }
