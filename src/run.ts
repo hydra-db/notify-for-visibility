@@ -16,6 +16,24 @@ export interface Io {
   workdir(): Promise<string>
 }
 
+// The rules come from the base commit so a PR cannot change the rules it is
+// checked against. A head that has them while the base does not is the PR
+// adding them, which has nothing to check yet. Neither having them is a
+// misconfiguration, so it fails rather than skipping quietly.
+export async function loadRulesText(
+  read: (ref: string) => Promise<string | undefined>,
+  path: string,
+  base: string,
+  head: string,
+): Promise<{ text: string } | { skip: string }> {
+  const text = await read(base)
+  if (text !== undefined) return { text }
+  if ((await read(head)) !== undefined) {
+    return { skip: `${path} is in this PR but not on the base branch yet, so there are no rules to check. Skipping.` }
+  }
+  throw new Error(`${path} not found on the base branch or in this PR. Check the config-path input.`)
+}
+
 export async function evaluate(config: Config, files: ChangedFile[], io: Io): Promise<Fired[]> {
   const fired: Fired[] = []
   for (const rule of config.rules) {
@@ -36,13 +54,17 @@ export async function evaluate(config: Config, files: ChangedFile[], io: Io): Pr
   return fired
 }
 
-// Drops (rule, person, channel) triples already sent on this PR.
-export function plan(fired: Fired[], previouslySent: Sent[]): Delivery[] {
+// Drops (rule, person, channel) triples already sent on this PR, and the PR's
+// author, who already knows what they changed.
+export function plan(fired: Fired[], previouslySent: Sent[], people: Config['people'], author: string): Delivery[] {
   const done = new Set(previouslySent.map(key))
+  const isAuthor = (person: string) => people[person].github.toLowerCase() === author.toLowerCase()
   const deliveries: Delivery[] = []
   for (const { rule, files } of fired) {
     const pending = (channel: 'github' | 'slack') =>
-      rule.notify.filter(n => n.via.includes(channel) && !done.has(key([rule.name, n.person, channel])))
+      rule.notify.filter(
+        n => n.via.includes(channel) && !isAuthor(n.person) && !done.has(key([rule.name, n.person, channel])),
+      )
     const d = { rule, files, github: pending('github'), slack: pending('slack') }
     if (d.github.length > 0 || d.slack.length > 0) deliveries.push(d)
   }

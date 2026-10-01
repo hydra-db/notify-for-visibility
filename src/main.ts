@@ -3,13 +3,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import * as core from '@actions/core'
 import { context, getOctokit } from '@actions/github'
-import { ConfigError, parseConfig } from './config.ts'
+import { parseConfig } from './config.ts'
 import { createComment, getContent, listFiles, MAX_PR_FILES, readPreviouslySent } from './github.ts'
 import type { FileContents } from './match/astgrep.ts'
 import { installAstGrep, PINNED_VERSION } from './match/astgrep-install.ts'
 import { postSlack } from './notify/slack.ts'
 import { type PullRequest, renderComment, renderSlack } from './render.ts'
-import { evaluate, type Io, plan } from './run.ts'
+import { evaluate, type Io, loadRulesText, plan } from './run.ts'
 import type { Sent } from './state.ts'
 
 interface PullRequestPayload {
@@ -17,6 +17,7 @@ interface PullRequestPayload {
   title: string
   html_url: string
   draft?: boolean
+  user: { login: string }
   base: { sha: string }
   head: { sha: string }
 }
@@ -32,12 +33,17 @@ async function run(): Promise<void> {
   const repo = context.repo
   const configPath = core.getInput('config-path') || '.github/notify-for-visibility.yml'
 
-  // Read from the base commit so a PR cannot change the rules it is checked against.
-  const configText = await getContent(octokit, repo, configPath, payload.base.sha)
-  if (configText === undefined) {
-    throw new ConfigError(`${configPath} not found on the base branch at ${payload.base.sha}`)
+  const rules = await loadRulesText(
+    ref => getContent(octokit, repo, configPath, ref),
+    configPath,
+    payload.base.sha,
+    payload.head.sha,
+  )
+  if ('skip' in rules) {
+    core.notice(rules.skip)
+    return
   }
-  const config = parseConfig(configText, configPath)
+  const config = parseConfig(rules.text, configPath)
 
   if (payload.draft && config['ignore-drafts']) {
     core.info('Draft PR, skipping. It is checked again once marked ready for review.')
@@ -80,9 +86,10 @@ async function run(): Promise<void> {
   }
   core.info(`Matched: ${fired.map(f => f.rule.name).join(', ')}`)
 
-  const deliveries = plan(fired, await readPreviouslySent(octokit, repo, payload.number))
+  const previouslySent = await readPreviouslySent(octokit, repo, payload.number)
+  const deliveries = plan(fired, previouslySent, config.people, payload.user.login)
   if (deliveries.length === 0) {
-    core.info('Everyone was already notified on this PR.')
+    core.info('Nothing new to send. Everyone was already notified, or is the PR author.')
     return
   }
 
