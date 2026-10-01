@@ -1,0 +1,28 @@
+{
+  "name": "notify-for-visibility",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Notify people when the parts of the code they care about change in a PR",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24.12"
+  },
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node24 --format=esm --outfile=dist/index.js --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
+    "typecheck": "tsc",
+    "test": "node --test 'test/**/*.test.ts'"
+  },
+  "dependencies": {
+    "@actions/core": "^3.0.1",
+    "@actions/github": "^9.1.1",
+    "@actions/tool-cache": "^4.0.0",
+    "ajv": "^8.20.0",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../schema/config.schema.json
+people:
+  tushar: { github: tushar-hydradb }
+rules:
+  - name: action-source
+    change:
+      - paths: ["src/**", "action.yml"]
+    notify:
+      - person: tushar
+        via: [github]
+        comment: The action's behaviour changed, check the README still matches.
+  - name: cypher-in-fixtures
+    change:
+      - paths: ["test/fixtures/**/*.go"]
+        ast-grep:
+          language: go
+          rule:
+            any:
+              - kind: interpreted_string_literal
+              - kind: raw_string_literal
+            regex: '\b(MATCH|MERGE|CREATE)\b'
+    notify:
+      - person: tushar
+        via: [github]

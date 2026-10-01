@@ -1,0 +1,18 @@
+# Runs this repo's own action on its PRs, against .github/notify-for-visibility.yml.
+name: self-test
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+permissions:
+  contents: read
+  pull-requests: write
+concurrency:
+  group: notify-for-visibility-${{ github.event.pull_request.number }}
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./
+        with:
+          slack-token: ${{ secrets.SLACK_TOKEN }}

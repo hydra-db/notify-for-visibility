@@ -1,0 +1,21 @@
+repos:
+  - repo: local
+    hooks:
+      - id: typecheck
+        name: typecheck
+        entry: npm run -s typecheck
+        language: system
+        pass_filenames: false
+        files: \.(ts|json)$
+      - id: test
+        name: test
+        entry: npm test
+        language: system
+        pass_filenames: false
+        files: ^(src|test|schema)/
+      - id: check-dist
+        name: dist is up to date
+        entry: sh -c 'npm run -s build && git diff --exit-code --quiet dist/ || { echo "dist/ was stale, rebuilt it. stage it and commit again"; exit 1; }'
+        language: system
+        pass_filenames: false
+        files: ^(src|schema)/|^package(-lock)?\.json$

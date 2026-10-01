@@ -1,0 +1,25 @@
+name: notify-for-visibility
+description: Tag the people who care about a part of the code when a PR changes it, on GitHub or Slack.
+author: hydra-db
+branding:
+  icon: bell
+  color: purple
+inputs:
+  github-token:
+    description: Token used to read the config and PR files and to comment. Needs contents read and pull-requests write.
+    default: ${{ github.token }}
+  slack-token:
+    description: Slack bot token with chat:write. Without it, Slack notifications are skipped with a warning.
+    required: false
+  config-path:
+    description: Path to the config file, read from the PR's base commit.
+    default: .github/notify-for-visibility.yml
+  ast-grep-version:
+    description: Override the pinned ast-grep version. Its checksum is not verified.
+    required: false
+outputs:
+  matched-rules:
+    description: JSON array of the names of rules that matched this PR.
+runs:
+  using: node24
+  main: dist/index.js

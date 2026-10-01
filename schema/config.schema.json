@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/hydra-db/notify-for-visibility/v1/schema/config.schema.json",
+  "title": "notify-for-visibility config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["people", "rules"],
+  "properties": {
+    "people": {
+      "description": "Everyone a rule can notify, keyed by a name the rules refer to.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["github"],
+        "properties": {
+          "github": { "description": "GitHub login, without the @.", "type": "string", "minLength": 1 },
+          "slack": { "description": "Slack member ID, e.g. U0123ABCD.", "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "slack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channel"],
+      "properties": {
+        "channel": { "description": "Slack channel ID to post into, e.g. C0123ABCD.", "type": "string", "minLength": 1 }
+      }
+    },
+    "ignore-drafts": {
+      "description": "Skip draft PRs. They are checked once marked ready for review.",
+      "type": "boolean",
+      "default": true
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "change", "notify"],
+        "properties": {
+          "name": { "description": "Unique rule name, shown in notifications.", "type": "string", "minLength": 1 },
+          "change": {
+            "description": "The rule fires when any entry matches.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["paths"],
+              "properties": {
+                "paths": {
+                  "description": "Globs matched against changed file paths.",
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "type": "string", "minLength": 1 }
+                },
+                "ast-grep": {
+                  "description": "An ast-grep rule, passed through as-is. A file matches only if the set of matched snippets differs between base and head.",
+                  "type": "object",
+                  "required": ["language", "rule"],
+                  "properties": {
+                    "language": { "type": "string", "minLength": 1 },
+                    "rule": { "type": "object" },
+                    "constraints": { "type": "object" },
+                    "utils": { "type": "object" },
+                    "transform": { "type": "object" }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "notify": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["person", "via"],
+              "properties": {
+                "person": { "description": "A key from people.", "type": "string", "minLength": 1 },
+                "via": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": { "enum": ["github", "slack"] }
+                },
+                "comment": { "description": "Human-readable message included verbatim.", "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
